@@ -1,10 +1,10 @@
 #ifndef __PICOPEAKS_H__
 #define __PICOPEAKS_H__
 
-#include <phdefin.h>
+#include "ph330defin.h"
 
 #define BLOCK 0
-
+#define HISTCHAN DFLTHISTLEN // 65536 max is 524288 now!
 #define ERRBUF 1024
 
 #define BUFFERS_60  12  /*(60/5)*/

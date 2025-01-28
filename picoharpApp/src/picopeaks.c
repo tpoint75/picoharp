@@ -3,12 +3,11 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <unistd.h>
+//#include <unistd.h>
 #include <math.h>
 #include <time.h>
 
-#include <phlib.h>
-#include <phdefin.h>
+#include "ph330lib.h"
 
 #include "picopeaks.h"
 
@@ -23,7 +22,7 @@
         if(__status < 0) \
         { \
             char __errstr[ERRBUF]; \
-            PH_GetErrorString(__errstr, __status); \
+            PH330_GetErrorString(__errstr, __status); \
             sprintf(self->error, "%s", __errstr); \
             printf(#call " %s\n", __errstr); \
             return false; \
@@ -42,17 +41,17 @@ void scanPicoDevices(void)
     printf("scanPicoDevices\n");
 
     char libversion[8];
-    if (PH_GetLibraryVersion(libversion) == 0)
-        printf("PH_GetLibraryVersion %s\n", libversion);
+    if (PH330_GetLibraryVersion(libversion) == 0)
+        printf("PH330_GetLibraryVersion %s\n", libversion);
     else
         printf("Unable to interrogate library.\n");
 
     for (int dev = 0; dev < MAXDEVNUM; dev ++)
     {
         pico_devices[dev].available =
-            PH_OpenDevice(dev, pico_devices[dev].serial) == 0;
+            PH330_OpenDevice(dev, pico_devices[dev].serial) == 0;
         if (pico_devices[dev].available)
-            printf("Found picoharp s/n %s (slot %d)\n",
+            printf("Found picoharp 330 s/n %s (slot %d)\n",
                 pico_devices[dev].serial, dev);
     }
 }
@@ -318,8 +317,8 @@ static void accum_buffer(
 void pico_process_fast(struct pico_data *self)
 {
     self->max_bin = compute_max_bin(self->countsbuffer);
-    self->total_count_fast = compute_total_count(self->countsbuffer);
-    self->turns_fast = 1e-3 * self->current_time * self->turns_per_sec;
+    self->total_count_fast = compute_total_count(self->countsbuffer);       // total_count_fast does not exist in struct pico_data
+    self->turns_fast = 1e-3 * self->current_time * self->turns_per_sec;     // turns_fast does not exist in struct pico_data
 
     /* Accumulate fast buffer into 5 second buffer. */
     for (int i = 0; i < HISTCHAN; i ++)
@@ -397,16 +396,18 @@ static bool pico_set_config(struct pico_data *self)
     printf("SyncDiv   %g\n", self->syncdiv);
     printf("Range     %g\n", self->range);
 
-    PICO_CHECK(PH_SetSyncDiv(self->device, (int) self->syncdiv));
-    PICO_CHECK(PH_SetInputCFD(
+    PICO_CHECK(PH330_SetSyncDiv(self->device, (int) self->syncdiv));
+    PICO_CHECK(PH330_SetInputTrgMode(self->device, 0, 1 ));     // set input 0 to CFD mode
+    PICO_CHECK(PH330_SetInputTrgMode(self->device, 1, 1 ));     // set input 1 to CFD mode
+    PICO_CHECK(PH330_SetInputCFD(
         self->device, 0, (int) self->cfdlevel0, (int) self->cfdzerox0));
-    PICO_CHECK(PH_SetInputCFD(
+    PICO_CHECK(PH330_SetInputCFD(
         self->device, 1, (int) self->cfdlevel1, (int) self->cfdzerox1));
-    PICO_CHECK(PH_SetOffset(self->device, (int) self->offset));
-    PICO_CHECK(PH_SetStopOverflow(self->device, 1, HISTCHAN-1));
-    PICO_CHECK(PH_SetBinning(self->device, (int) self->range));
+    PICO_CHECK(PH330_SetOffset(self->device, (int) self->offset));
+    PICO_CHECK(PH330_SetStopOverflow(self->device, 1, HISTCHAN-1));
+    PICO_CHECK(PH330_SetBinning(self->device, (int) self->range));
 
-    PICO_CHECK(PH_GetResolution(self->device, &self->resolution));
+    PICO_CHECK(PH330_GetResolution(self->device, &self->resolution));
 
     return true;
 }
@@ -423,27 +424,27 @@ bool pico_measure(struct pico_data *self, int delay)
 
     self->overflow = 0;
 
-    PICO_CHECK(PH_ClearHistMem(self->device, BLOCK));
-    PICO_CHECK(PH_StartMeas(self->device, delay));
+    PICO_CHECK(PH330_ClearHistMem(self->device));
+    PICO_CHECK(PH330_StartMeas(self->device, delay));
     self->current_time = delay;
 
     while (true)
     {
         int done = 0;
-        PICO_CHECK(PH_CTCStatus(self->device, &done));
+        PICO_CHECK(PH330_CTCStatus(self->device, &done));
         if(done)
             break;
         usleep(10000);  // 10 ms poll
     }
 
     int Flags = 0;
-    PICO_CHECK(PH_StopMeas(self->device));
-    PICO_CHECK(PH_GetHistogram(self->device, self->countsbuffer, BLOCK));
-    PICO_CHECK(PH_GetFlags(self->device, &Flags));
+    PICO_CHECK(PH330_StopMeas(self->device));
+    PICO_CHECK(PH330_GetHistogram(self->device, self->countsbuffer, BLOCK));    // only for channel 1?
+    PICO_CHECK(PH330_GetFlags(self->device, &Flags));
 
     int count_rate_0, count_rate_1;
-    PICO_CHECK(PH_GetCountRate(self->device, 0, &count_rate_0));
-    PICO_CHECK(PH_GetCountRate(self->device, 1, &count_rate_1));
+    PICO_CHECK(PH330_GetCountRate(self->device, 0, &count_rate_0));
+    PICO_CHECK(PH330_GetCountRate(self->device, 1, &count_rate_1));
     self->count_rate_0 = count_rate_0;
     self->count_rate_1 = count_rate_1;
 
@@ -455,15 +456,13 @@ bool pico_measure(struct pico_data *self, int delay)
 
 static bool pico_open(struct pico_data *self)
 {
-    PICO_CHECK(PH_Initialize(self->device, MODE_HIST));
+    PICO_CHECK(PH330_Initialize(self->device, MODE_HIST, REFSRC_INTERNAL));
 
-    char model[16];
+    char model[24];
     char partnum[8];
     char version[8];
-    PICO_CHECK(PH_GetHardwareInfo(self->device, model, partnum, version));
-    printf("PH_GetHardwareInfo %s %s %s\n", model, partnum, version);
-
-    PICO_CHECK(PH_Calibrate(self->device));
+    PICO_CHECK(PH330_GetHardwareInfo(self->device, model, partnum, version));
+    printf("PH330_GetHardwareInfo %s %s %s\n", model, partnum, version);
 
     return pico_set_config(self);
 }

@@ -31,9 +31,4 @@ picoharp_DBD += asyn.dbd
 picoharp_DBD += pico.dbd
 
 
-USR_INCLUDES += -I$(PHLIB)/include
-phlib_DIR = $(PHLIB)/lib
-
-pico_LIBS += phlib
-
 include $(TOP)/configure/RULES
