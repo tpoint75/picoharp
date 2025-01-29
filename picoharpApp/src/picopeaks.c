@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-//#include <unistd.h>
+#include <unistd.h>
 #include <math.h>
 #include <time.h>
 
@@ -317,8 +317,8 @@ static void accum_buffer(
 void pico_process_fast(struct pico_data *self)
 {
     self->max_bin = compute_max_bin(self->countsbuffer);
-    self->total_count_fast = compute_total_count(self->countsbuffer);       // total_count_fast does not exist in struct pico_data
-    self->turns_fast = 1e-3 * self->current_time * self->turns_per_sec;     // turns_fast does not exist in struct pico_data
+    self->total_count_fast = compute_total_count(self->countsbuffer);
+    self->turns_fast = 1e-3 * self->current_time * self->turns_per_sec;
 
     /* Accumulate fast buffer into 5 second buffer. */
     for (int i = 0; i < HISTCHAN; i ++)
@@ -397,8 +397,8 @@ static bool pico_set_config(struct pico_data *self)
     printf("Range     %g\n", self->range);
 
     PICO_CHECK(PH330_SetSyncDiv(self->device, (int) self->syncdiv));
-    PICO_CHECK(PH330_SetInputTrgMode(self->device, 0, 1 ));     // set input 0 to CFD mode
-    PICO_CHECK(PH330_SetInputTrgMode(self->device, 1, 1 ));     // set input 1 to CFD mode
+    PICO_CHECK(PH330_SetSyncTrgMode(self->device, 1 ));     // set sync to CFD mode
+    PICO_CHECK(PH330_SetInputTrgMode(self->device, 0, 1 ));     // set input 1 to CFD mode
     PICO_CHECK(PH330_SetInputCFD(
         self->device, 0, (int) self->cfdlevel0, (int) self->cfdzerox0));
     PICO_CHECK(PH330_SetInputCFD(
@@ -439,7 +439,7 @@ bool pico_measure(struct pico_data *self, int delay)
 
     int Flags = 0;
     PICO_CHECK(PH330_StopMeas(self->device));
-    PICO_CHECK(PH330_GetHistogram(self->device, self->countsbuffer, BLOCK));    // only for channel 1?
+    PICO_CHECK(PH330_GetHistogram(self->device, self->countsbuffer, BLOCK));
     PICO_CHECK(PH330_GetFlags(self->device, &Flags));
 
     int count_rate_0, count_rate_1;
