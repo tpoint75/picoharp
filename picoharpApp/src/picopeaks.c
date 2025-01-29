@@ -397,12 +397,12 @@ static bool pico_set_config(struct pico_data *self)
     printf("Range     %g\n", self->range);
 
     PICO_CHECK(PH330_SetSyncDiv(self->device, (int) self->syncdiv));
-    PICO_CHECK(PH330_SetSyncTrgMode(self->device, 1 ));     // set sync to CFD mode
+    PICO_CHECK(PH330_SetSyncTrgMode(self->device, 1 ));         // set sync to CFD mode
     PICO_CHECK(PH330_SetInputTrgMode(self->device, 0, 1 ));     // set input 1 to CFD mode
+    PICO_CHECK(PH330_SetSyncCFD(
+        self->device, (int) self->cfdlevel0, (int) self->cfdzerox0));       // set sync to CFD levels
     PICO_CHECK(PH330_SetInputCFD(
-        self->device, 0, (int) self->cfdlevel0, (int) self->cfdzerox0));
-    PICO_CHECK(PH330_SetInputCFD(
-        self->device, 1, (int) self->cfdlevel1, (int) self->cfdzerox1));
+        self->device, 0, (int) self->cfdlevel1, (int) self->cfdzerox1));    // set input 1 to CFD levels
     PICO_CHECK(PH330_SetOffset(self->device, (int) self->offset));
     PICO_CHECK(PH330_SetStopOverflow(self->device, 1, HISTCHAN-1));
     PICO_CHECK(PH330_SetBinning(self->device, (int) self->range));
@@ -443,8 +443,8 @@ bool pico_measure(struct pico_data *self, int delay)
     PICO_CHECK(PH330_GetFlags(self->device, &Flags));
 
     int count_rate_0, count_rate_1;
-    PICO_CHECK(PH330_GetCountRate(self->device, 0, &count_rate_0));
-    PICO_CHECK(PH330_GetCountRate(self->device, 1, &count_rate_1));
+    PICO_CHECK(PH330_GetSyncRate(self->device, &count_rate_0));     // get sync countrate
+    PICO_CHECK(PH330_GetCountRate(self->device, 0, &count_rate_1)); // get input 1 countrate
     self->count_rate_0 = count_rate_0;
     self->count_rate_1 = count_rate_1;
 
